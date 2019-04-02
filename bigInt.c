@@ -52,6 +52,15 @@ bool bi_init(BigInt *bi, bi_block const *val, size_t len);
  * @param Nombre à finaliser, doit avoir été initialisé
 **/
 void bi_cleanup(BigInt *);
+static void chop_zeroes (BigInt* a){
+    size_t i = a->length-1;
+    while (a->blocks[i] == 0)
+    {
+        i--;
+    }
+    a->length = i + 1;
+    a->blocks = realloc(a->blocks, a->length*sizeof(bi_block));
+}
 
 /** Comparaison de deux BigInts.
  * @param Nombre A, doit avoir été initialisé
@@ -231,9 +240,9 @@ bi_block bi_expmod(BigInt const *B, BigInt const *E, bi_block m)
         bi_block p = 1;
         bi_block b = bi_mod(B, m);
         bi_block copy[E->length];
-        for(size_t i = 0; i < E->length; i++)
+        for (size_t i = 0; i < E->length; i++)
         {
-            copy[i]=E->blocks[i]; 
+            copy[i] = E->blocks[i];
         }
         for (size_t i = 0; i < E->length; i++)
         {
@@ -256,7 +265,7 @@ bool bi_sum_init(BigInt const *A, BigInt const *B, BigInt *R)
         BigInt const *s = A->length < B->length ? A : B;
         BigInt const *b = A->length < B->length ? B : A;
         R->length = b->length + 1;
-        if (R->length <= __SIZE_MAX__/ sizeof(bi_block) && (R->blocks = realloc(R->blocks, (R->length) * sizeof(bi_block))) != NULL)
+        if (R->length <= __SIZE_MAX__ / sizeof(bi_block) && (R->blocks = realloc(R->blocks, (R->length) * sizeof(bi_block))) != NULL)
         {
             bi_block carryIn = 0;
             for (int i = 0; i < s->length; i++)
@@ -270,6 +279,7 @@ bool bi_sum_init(BigInt const *A, BigInt const *B, BigInt *R)
                 carryIn = bi_upper(b->blocks[i] + carryIn);
             }
             R->blocks[R->length - 1] = carryIn;
+            chop_zeroes(R);
             return true;
         }
     }
@@ -283,8 +293,8 @@ bool bi_sum_over(BigInt *A, BigInt const *B)
         BigInt const *s = A->length < B->length ? A : B;
         BigInt const *b = A->length < B->length ? B : A;
         A->length = b->length + 1;
-        if (A->length <= __SIZE_MAX__/ sizeof(bi_block) && (A->blocks = realloc(A->blocks, (A->length) * sizeof(bi_block))) != NULL)
-        {   
+        if (A->length <= __SIZE_MAX__ / sizeof(bi_block) && (A->blocks = realloc(A->blocks, (A->length) * sizeof(bi_block))) != NULL)
+        {
             bi_block carryIn = 0;
             for (int i = 0; i < s->length; i++)
             {
@@ -292,13 +302,14 @@ bool bi_sum_over(BigInt *A, BigInt const *B)
                 A->blocks[i] = bi_lower(previous + B->blocks[i] + carryIn);
                 carryIn = bi_upper(previous + B->blocks[i] + carryIn);
             }
-             for (int i = s->length; i < b->length; i++)
+            for (int i = s->length; i < b->length; i++)
             {
                 bi_block previous = b->blocks[i];
                 A->blocks[i] = bi_lower(previous + carryIn);
                 carryIn = bi_upper(previous + carryIn);
             }
             A->blocks[A->length - 1] = carryIn;
+            chop_zeroes(A);
             return true;
         }
     }
@@ -311,18 +322,18 @@ bool bi_mul_init(BigInt const *A, BigInt const *B, BigInt *R)
     BigInt const *s = A->length < B->length ? A : B;
     BigInt const *b = A->length < B->length ? B : A;
     R->blocks = realloc(R->blocks, (R->length) * sizeof(bi_block));
-    for(size_t j = 0; j < R->length; j++)
-        {
-            R->blocks[j]=0;
-        }
+    for (size_t j = 0; j < R->length; j++)
+    {
+        R->blocks[j] = 0;
+    }
     BigInt a;
     bi_init(&a, R->blocks, R->length);
     bi_block carryIn = 0;
     for (size_t i = 0; i < s->length; i++)
     {
-        for(size_t j = 0; j < i; j++)
+        for (size_t j = 0; j < i; j++)
         {
-            a.blocks[j]=0;
+            a.blocks[j] = 0;
         }
         for (size_t j = 0; j < b->length; j++)
         {
@@ -332,7 +343,7 @@ bool bi_mul_init(BigInt const *A, BigInt const *B, BigInt *R)
         bi_sum_over(R, &a);
     }
     bi_cleanup(&a);
-
+    chop_zeroes(R);
     return true;
 }
 
@@ -388,8 +399,11 @@ int main(void)
         printf("bi_compare(&y, &z): %s\n", bi_compare(&y, &z) == bi_above ? "ok" : "erreur");
         printf("bi_mod(&y, %llu): %s\n", m, bi_mod(&y, m) == 135ull ? "ok" : "erreur");
         printf("bi_expmod(&y, &z, %llu): %s\n", m, bi_expmod(&y, &z, m) == 18ull ? "ok" : "erreur");
+        bi_sum_over(&a, &a);
+        bi_sum_over(&a, &a);
+        bi_println("a =", &a);
         bi_mul_init(&a, &a, &y);
-        bi_println("z = ", &y );
+        bi_println("z = ", &y);
 
         bi_cleanup(&z);
         bi_cleanup(&y);
