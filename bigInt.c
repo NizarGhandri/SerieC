@@ -155,7 +155,7 @@ void bi_println(const char *p, BigInt const *x)
 {
     printf("%s{", p);
     for (size_t i = 0; i < x->length; ++i)
-        printf(" 0x%08llx", x->blocks[i]);
+        printf(" %08llu", x->blocks[i]);
     puts(" }");
 }
 
@@ -322,7 +322,7 @@ bool bi_mul_init(BigInt const *A, BigInt const *B, BigInt *R)
         R->length = B->length + A->length - 1;
         BigInt const *s = A->length < B->length ? A : B;
         BigInt const *b = A->length < B->length ? B : A;
-        if ((R->blocks = realloc(R->blocks, (R->length) * sizeof(bi_block)) != NULL) {
+        if ((R->blocks = realloc(R->blocks, (R->length) * sizeof(bi_block))) != NULL) {
             for (size_t j = 0; j < R->length; j++)
             {
                 R->blocks[j] = 0;
@@ -352,7 +352,7 @@ bool bi_mul_init(BigInt const *A, BigInt const *B, BigInt *R)
 }
 
 bool bi_mul_over(BigInt *A, BigInt const *B){
-    bi_mul_init(A, B, A);
+    return bi_mul_init(A, B, A);
 }
 
 
@@ -371,8 +371,8 @@ int main(void)
         memset(&x, 0, sizeof(x));
         memset(&y, 0, sizeof(y));
         memset(&z, 0, sizeof(z));
-        bi_block const vx[] = {0xffffffffull, 0xffffffffull, 0xffffffffull, 0xffffffffull};
-        bi_block const vy[] = {0x0000ffffull, 0x0000ffffull, 0x0000ffffull, 0x0000ffffull, 0x0000ffffull, 0x0000ffffull};
+        bi_block const vx[] = {2725895276, 3815310589, 367};
+        bi_block const vy[] = {1443865781, 4069070840, 3460988935, 13823284};
         bi_block const vz[] = {0xffffffffull, 0xffffffffull, 0xffffffffull, 0xffffffffull, 0x00000000ull};
         bi_block const va[] = {0x1ull};
         if (!bi_init(&x, vx, sizeof(vx) / sizeof(*vx)))
@@ -412,8 +412,8 @@ int main(void)
         bi_sum_over(&a, &a);
         bi_sum_over(&a, &a);
         bi_println("a =", &a);
-        bi_mul_init(&a, &a, &y);
-        bi_println("z = ", &y);
+        bi_mul_init(&y, &x, &a);
+        bi_println("z = ", &a);
 
         bi_cleanup(&z);
         bi_cleanup(&y);
