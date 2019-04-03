@@ -318,34 +318,44 @@ bool bi_sum_over(BigInt *A, BigInt const *B)
 
 bool bi_mul_init(BigInt const *A, BigInt const *B, BigInt *R)
 {
-    R->length = B->length + A->length - 1;
-    BigInt const *s = A->length < B->length ? A : B;
-    BigInt const *b = A->length < B->length ? B : A;
-    R->blocks = realloc(R->blocks, (R->length) * sizeof(bi_block));
-    for (size_t j = 0; j < R->length; j++)
-    {
-        R->blocks[j] = 0;
-    }
-    BigInt a;
-    bi_init(&a, R->blocks, R->length);
-    bi_block carryIn = 0;
-    for (size_t i = 0; i < s->length; i++)
-    {
-        for (size_t j = 0; j < i; j++)
-        {
-            a.blocks[j] = 0;
+    if (A != NULL && B != NULL && R != NULL) {
+        R->length = B->length + A->length - 1;
+        BigInt const *s = A->length < B->length ? A : B;
+        BigInt const *b = A->length < B->length ? B : A;
+        if ((R->blocks = realloc(R->blocks, (R->length) * sizeof(bi_block)) != NULL) {
+            for (size_t j = 0; j < R->length; j++)
+            {
+                R->blocks[j] = 0;
+            }
+            BigInt a;
+            bi_init(&a, R->blocks, R->length);
+            bi_block carryIn = 0;
+            for (size_t i = 0; i < s->length; i++)
+            {
+                for (size_t j = 0; j < i; j++)
+                {
+                    a.blocks[j] = 0;
+                }
+                for (size_t j = 0; j < b->length; j++)
+                {
+                    a.blocks[j + i] = bi_lower(s->blocks[i] * b->blocks[j] + carryIn);
+                    carryIn = bi_upper(s->blocks[i] * b->blocks[j] + carryIn);
+                }
+                bi_sum_over(R, &a);
+            }
+            chop_zeroes(R);
+            bi_cleanup(&a);
+            return true;
         }
-        for (size_t j = 0; j < b->length; j++)
-        {
-            a.blocks[j + i] = bi_lower(s->blocks[i] * b->blocks[j] + carryIn);
-            carryIn = bi_upper(s->blocks[i] * b->blocks[j] + carryIn);
-        }
-        bi_sum_over(R, &a);
     }
-    bi_cleanup(&a);
-    chop_zeroes(R);
-    return true;
+    return false;
 }
+
+bool bi_mul_over(BigInt *A, BigInt const *B){
+    bi_mul_init(A, B, A);
+}
+
+
 
 // -------------------------------------------------------------------------- //
 // Tests sommaires
