@@ -1,5 +1,5 @@
 // This file requires at least C99 to compile
-
+#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,14 +52,16 @@ bool bi_init(BigInt *bi, bi_block const *val, size_t len);
  * @param Nombre à finaliser, doit avoir été initialisé
 **/
 void bi_cleanup(BigInt *);
-static void chop_zeroes (BigInt* a){
-    size_t i = a->length-1;
-    while (a->blocks[i] == 0)
+static void chop_zeroes(BigInt *a)
+{
+    if (a -> len)
+    size_t i = a->length - 1;
+    while (a->blocks[i] == 0 && i > 0)
     {
         i--;
     }
     a->length = i + 1;
-    a->blocks = realloc(a->blocks, a->length*sizeof(bi_block));
+    a->blocks = realloc(a->blocks, a->length * sizeof(bi_block));
 }
 
 /** Comparaison de deux BigInts.
@@ -184,78 +186,69 @@ bool bi_init(BigInt *bi, bi_block const *val, size_t len)
 
 void bi_cleanup(BigInt *b)
 {
-    if (b != NULL)
-    {
-        b->length = 0;
-        free(b->blocks);
-        b->blocks = NULL;
-    }
+    assert(b != NULL);
+    b->length = 0;
+    free(b->blocks);
+    b->blocks = NULL;
 }
 
 enum bi_cmp bi_compare(BigInt const *A, BigInt const *B)
 {
-    if (A != NULL && B != NULL)
+    assert(A != NULL && B != NULL);
+    BigInt const *s = A->length < B->length ? A : B;
+    BigInt const *b = A->length >= B->length ? A : B;
+    int i = b->length - 1;
+    int j = s->length - 1;
+    while (i > j)
     {
-        BigInt const *s = A->length < B->length ? A : B;
-        BigInt const *b = A->length >= B->length ? A : B;
-        int i = b->length - 1;
-        int j = s->length - 1;
-        while (i > j)
+        if (b->blocks[i] != 0)
         {
-            if (s->blocks[i] != 0)
-            {
-                enum bi_cmp a = A->length < B->length ? bi_below : bi_above;
-                return a;
-            }
-            i--;
+            return A->length < B->length ? bi_below : bi_above;
         }
-        while (A->blocks[i] == B->blocks[i] && i > 0)
-        {
-            i--;
-        }
-        return cmp_blocks(A->blocks + i, B->blocks + i);
+        i--;
     }
+    while (A->blocks[i] == B->blocks[i] && i > 0)
+    {
+        i--;
+    }
+    return cmp_blocks(A->blocks + i, B->blocks + i);
 }
 
 bi_block bi_mod(BigInt const *A, bi_block m)
 {
-    if (A != NULL && m != 0)
+    assert(A != NULL && m != 0);
+    bi_block baseIncrementer = bi_base % m;
+    bi_block modBase = 1;
+    bi_block sum = 0;
+    for (int i = 0; i < A->length; i++)
     {
-        bi_block baseIncrementer = bi_base % m;
-        bi_block modBase = 1;
-        bi_block sum = 0;
-        for (int i = 0; i < A->length; i++)
-        {
-            sum = (sum + ((A->blocks[i] % m) * modBase % m)) % m;
-            modBase = (baseIncrementer * modBase) % m;
-        }
-        return sum;
+        sum = (sum + ((A->blocks[i] % m) * modBase % m)) % m;
+        modBase = (baseIncrementer * modBase) % m;
     }
+    return sum;
 }
 
 bi_block bi_expmod(BigInt const *B, BigInt const *E, bi_block m)
 {
-    if (B != NULL && E != NULL && m != 0)
+    assert(B != NULL && E != NULL && m != 0);
+    bi_block p = 1;
+    bi_block b = bi_mod(B, m);
+    bi_block copy[E->length];
+    for (size_t i = 0; i < E->length; i++)
     {
-        bi_block p = 1;
-        bi_block b = bi_mod(B, m);
-        bi_block copy[E->length];
-        for (size_t i = 0; i < E->length; i++)
-        {
-            copy[i] = E->blocks[i];
-        }
-        for (size_t i = 0; i < E->length; i++)
-        {
-            for (size_t j = 0; j < bi_block_used; j++)
-            {
-                if (copy[i] & 1)
-                    p = (p * b) % m;
-                copy[i] /= 2;
-                b = (b * b) % m;
-            }
-        }
-        return p;
+        copy[i] = E->blocks[i];
     }
+    for (size_t i = 0; i < E->length; i++)
+    {
+        for (size_t j = 0; j < bi_block_used; j++)
+        {
+            if (copy[i] & 1)
+                p = (p * b) % m;
+            copy[i] /= 2;
+            b = (b * b) % m;
+        }
+    }
+    return p;
 }
 
 bool bi_sum_init(BigInt const *A, BigInt const *B, BigInt *R)
@@ -318,44 +311,43 @@ bool bi_sum_over(BigInt *A, BigInt const *B)
 
 bool bi_mul_init(BigInt const *A, BigInt const *B, BigInt *R)
 {
-    if (A != NULL && B != NULL && R != NULL) {
-        R->length = B->length + A->length - 1;
-        BigInt const *s = A->length < B->length ? A : B;
-        BigInt const *b = A->length < B->length ? B : A;
-        if ((R->blocks = realloc(R->blocks, (R->length) * sizeof(bi_block))) != NULL) {
+    if (A != NULL && B != NULL && R != NULL)
+    {
+        R->length = B->length + A->length + 1;
+        if ((R->blocks = realloc(R->blocks, (R->length) * sizeof(bi_block))) != NULL)
+        {
             for (size_t j = 0; j < R->length; j++)
             {
                 R->blocks[j] = 0;
             }
-            BigInt a;
-            bi_init(&a, R->blocks, R->length);
             bi_block carryIn = 0;
-            for (size_t i = 0; i < s->length; i++)
+            for (size_t i = 0; i < A->length; i++)
             {
-                for (size_t j = 0; j < i; j++)
+                carryIn = 0;
+                for (size_t j = 0; j < B->length; j++)
                 {
-                    a.blocks[j] = 0;
+                    R->blocks[i + j] = R->blocks[i + j] + carryIn + (A->blocks[i] * B->blocks[j]);
+                    carryIn = bi_upper(R->blocks[i + j]);
+                    R->blocks[j + i] = bi_lower(R->blocks[i + j]);
                 }
-                for (size_t j = 0; j < b->length; j++)
-                {
-                    a.blocks[j + i] = bi_lower(s->blocks[i] * b->blocks[j] + carryIn);
-                    carryIn = bi_upper(s->blocks[i] * b->blocks[j] + carryIn);
-                }
-                bi_sum_over(R, &a);
+                R->blocks[i + B->length] = carryIn;
             }
+
             chop_zeroes(R);
-            bi_cleanup(&a);
             return true;
         }
     }
     return false;
 }
 
-bool bi_mul_over(BigInt *A, BigInt const *B){
-    return bi_mul_init(A, B, A);
+bool bi_mul_over(BigInt *A, BigInt const *B)
+{
+    BigInt copy;
+    bi_init(&copy, A->blocks, A->length);
+    bool result = bi_mul_init(A, B, A);
+    bi_cleanup(&copy);
+    return result;
 }
-
-
 
 // -------------------------------------------------------------------------- //
 // Tests sommaires
@@ -374,7 +366,7 @@ int main(void)
         bi_block const vx[] = {2725895276, 3815310589, 367};
         bi_block const vy[] = {1443865781, 4069070840, 3460988935, 13823284};
         bi_block const vz[] = {0xffffffffull, 0xffffffffull, 0xffffffffull, 0xffffffffull, 0x00000000ull};
-        bi_block const va[] = {0x1ull};
+        bi_block const va[] = {0x0ull};
         if (!bi_init(&x, vx, sizeof(vx) / sizeof(*vx)))
         {
             puts("Erreur: bi_init(&x, ...)");
@@ -412,7 +404,7 @@ int main(void)
         bi_sum_over(&a, &a);
         bi_sum_over(&a, &a);
         bi_println("a =", &a);
-        bi_mul_init(&y, &x, &a);
+        bi_mul_init(&y, &a, &a);
         bi_println("z = ", &a);
 
         bi_cleanup(&z);
