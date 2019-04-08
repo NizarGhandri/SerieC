@@ -177,7 +177,11 @@ bool bi_init(BigInt *bi, bi_block const *val, size_t len)
     {
         bi->length = len;
         for (size_t i = 0; i < len; i++){
-            if (bi_upper(bi->blocks[i]) != 0) return false;
+            if (bi_upper(val[i]) != 0){
+                bi_cleanup(bi);
+                return false;
+            } 
+                
             bi->blocks[i] = val[i];
         }
         return true;
@@ -275,13 +279,11 @@ bool bi_sum_init(BigInt const *A, BigInt const *B, BigInt *R)
         bi_cleanup(R);
         if (A->blocks == NULL)
         {
-            bi_init(R, B->blocks, B->length);
-            return true;
+            return bi_init(R, B->blocks, B->length);
         }
         else if (B->blocks == NULL)
         {
-            bi_init(R, A->blocks, A->length);
-            return true;
+            return bi_init(R, A->blocks, A->length);
         }
         BigInt const *s = A->length < B->length ? A : B;
         BigInt const *b = A->length < B->length ? B : A;
@@ -316,8 +318,7 @@ bool bi_sum_over(BigInt *A, BigInt const *B)
         if (A->blocks == NULL)
         {
             bi_cleanup(A);
-            bi_init(A, B->blocks, B->length);
-            return true;
+            return bi_init(A, B->blocks, B->length);
         }
         else if (B->blocks == NULL)
         {
@@ -357,8 +358,7 @@ bool bi_mul_init(BigInt const *A, BigInt const *B, BigInt *R)
         if (A->blocks == NULL || B->blocks == NULL)
         {
             bi_cleanup(R);
-            bi_init(R, NULL, 0);
-            return true;
+            return bi_init(R, NULL, 0);
         }
         R->length = B->length + A->length + 1;
         R->blocks = calloc((R->length),  sizeof(bi_block));
